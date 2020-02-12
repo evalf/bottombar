@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import sys, os, struct, fcntl, termios, signal
+import sys, os, signal
 
 
 def default_formatter(*args, ncols):
@@ -37,12 +37,10 @@ class BottomBar:
     self.format = format
 
   def __bytes__(self):
-    return self.format(*self.args, ncols=self.ncols)[:self.ncols].encode(self.encoding)
+    return self.format(*self.args, ncols=self.size.columns)[:self.size.columns].encode(self.encoding)
 
   def resize(self, *dummy):
-    s = struct.pack('HHHH', 0, 0, 0, 0)
-    t = fcntl.ioctl(self.fileno, termios.TIOCGWINSZ, s)
-    self.nrows, self.ncols, ws_xpixel, ws_ypixel = struct.unpack('HHHH', t)
+    self.size = os.get_terminal_size(self.fileno)
     os.write(self.fileno,
       b'\033E' # scroll to make sure there is at least one open line below cursor
       b'\033[A' # return cursor to former position
@@ -52,7 +50,7 @@ class BottomBar:
       b'%s' # print bar
       b'\033[1;%dr' # set scroll region
       b'\0338' # restore cursor position
-      % (self.nrows, self, self.nrows-1))
+      % (self.size.lines, self, self.size.lines-1))
 
   def __enter__(self):
     if hasattr(self, '_oldhandler'):
@@ -69,7 +67,7 @@ class BottomBar:
       b'%s' # print bar
       b'\033[K' # clear line from cursor to end
       b'\0338' # restore cursor position
-      % (self.nrows, self))
+      % (self.size.lines, self))
 
   def __exit__(self, *exc):
     if not hasattr(self, '_oldhandler'):
@@ -80,7 +78,7 @@ class BottomBar:
       b'\033[K' # clear entire line
       b'\033[r' # reset scroll region
       b'\0338' # restore cursor position
-      % self.nrows)
+      % self.size.lines)
     signal.signal(signal.SIGWINCH, self._oldhandler)
     del self._oldhandler
 
