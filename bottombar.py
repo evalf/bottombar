@@ -63,41 +63,46 @@ class BottomBar:
     self.size = None
     self.handles = []
 
-  def __bytes__(self):
-    return self.format(*self.args, width=self.size.columns)[:self.size.columns].encode(self.encoding)
-
-  def resize(self, *dummy):
-    self.size = os.get_terminal_size(self.fileno)
-    os.write(self.fileno,
-      b'\033E' # scroll to make sure there is at least one open line below cursor
-      b'\033[A' # return cursor to former position
-      b'\033[J' # erase to end of screen
-      b'\0337' # save cursor position
-      b'\033[%d;1H' # move cursor to bottom row, first column
-      b'%s' # print bar
-      b'\033[1;%dr' # set scroll region
-      b'\0338' # restore cursor position
-      % (self.size.lines, self, self.size.lines-1))
-
   def __enter__(self):
     if self.size is not None:
       raise RuntimeError('BottomBar is not reentrant')
-    self.resize()
+    self.redraw(True)
     if hasattr(signal, 'SIGWINCH'):
-      self.handles.append(_onevent(signal.SIGWINCH, self.resize))
+      self.handles.append(_onevent(signal.SIGWINCH, self.redraw, False))
     else:
-      self.handles.append(_ontime(1, self.resize))
-    return self
+      self.handles.append(_ontime(1, self.redraw, False))
+    return self.update
 
-  def __call__(self, *args):
+  def update(self, *args):
     self.args = args
-    os.write(self.fileno,
-      b'\0337' # save cursor position
-      b'\033[%d;1H' # move cursor to bottom row, first column
-      b'%s' # print bar
-      b'\033[K' # clear line from cursor to end
-      b'\0338' # restore cursor position
-      % (self.size.lines, self))
+    self.redraw(True)
+
+  def redraw(self, force):
+    size = os.get_terminal_size(self.fileno)
+    if size != self.size:
+      os.write(self.fileno,
+        b'\0337' # save cursor and attributes
+        b'\033[r' # reset scroll region (moves cursor)
+        b'\0338' # restore cursor and attributes
+        b'\033D' # move/scroll down
+        b'\033M' # move up
+        b'\0337' # save cursor and attributes
+        b'\033[1;%dr' # set scroll region
+        b'\0338' # restore cursor and attributes
+        % (size.lines-1))
+      self.size = size
+      force = True
+    if force:
+      os.write(self.fileno,
+        b'\0337' # save cursor and attributes
+        b'\033[%d;1H' # move cursor to bottom row, first column
+        b'\033[2K' # clear entire line
+        b'\033[?7l' # disable line wrap
+        b'\033[0m' # clear attributes
+        b'%s' # print bar
+        b'\033[?7h' # enable line wrap
+        b'\0338' # restore cursor and attributes
+        % (size.lines, self.format(*self.args, width=size.columns).encode(self.encoding)))
 
   def __exit__(self, *exc):
     if self.size is None:
