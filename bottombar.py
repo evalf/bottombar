@@ -18,7 +18,35 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import sys, os, signal
+import sys, os, signal, threading
+
+
+class _ontime(threading.Thread):
+  def __init__(self, interval, callback, *args):
+    super().__init__()
+    self.interval = interval
+    self.callback = callback
+    self.args = args
+    self.stopped = threading.Event()
+    self.start()
+  def run(self):
+    while not self.stopped.wait(self.interval):
+      self.callback(*self.args)
+  def close(self):
+    self.stopped.set()
+    self.join()
+
+
+class _onevent:
+  def __init__(self, signalnum, callback, *args):
+    self.callback = callback
+    self.args = args
+    self.signalnum = signalnum
+    self.oldhandler = signal.signal(signalnum, self.handler)
+  def handler(self, sig, tb):
+    self.callback(*self.args)
+  def close(self):
+    signal.signal(self.signalnum, self.oldhandler)
 
 
 def default_formatter(*args, ncols):
@@ -36,6 +64,7 @@ class BottomBar:
     self.fileno = output.fileno()
     self.format = format
     self.size = None
+    self.handles = []
 
   def __bytes__(self):
     return self.format(*self.args, ncols=self.size.columns)[:self.size.columns].encode(self.encoding)
@@ -57,7 +86,10 @@ class BottomBar:
     if self.size is not None:
       raise RuntimeError('BottomBar is not reentrant')
     self.resize()
-    self._oldhandler = signal.signal(signal.SIGWINCH, self.resize)
+    if hasattr(signal, 'SIGWINCH'):
+      self.handles.append(_onevent(signal.SIGWINCH, self.resize))
+    else:
+      self.handles.append(_ontime(1, self.resize))
     return self
 
   def __call__(self, *args):
@@ -73,7 +105,8 @@ class BottomBar:
   def __exit__(self, *exc):
     if self.size is None:
       raise RuntimeError('BottomBar has not yet been entered')
-    signal.signal(signal.SIGWINCH, self._oldhandler)
+    while self.handles:
+      self.handles.pop().close()
     os.write(self.fileno,
       b'\0337' # save cursor position
       b'\033[%d;1H' # move cursor to bottom row, first column
