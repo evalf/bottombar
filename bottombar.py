@@ -49,16 +49,13 @@ class _onevent:
     signal.signal(self.signalnum, self.oldhandler)
 
 
-def default_formatter(*args, ncols):
-  bar = ' '.join(map(str, args))
-  if len(bar) > ncols:
-    bar = bar[:ncols-3] + '/..'
-  return bar
+def _format(*args, width):
+  return ' '.join(map(str, args))
 
 
 class BottomBar:
 
-  def __init__(self, *args, output=sys.stdout, format=default_formatter):
+  def __init__(self, *args, output=sys.stdout, format=_format):
     self.args = args
     self.encoding = output.encoding
     self.fileno = output.fileno()
@@ -67,7 +64,7 @@ class BottomBar:
     self.handles = []
 
   def __bytes__(self):
-    return self.format(*self.args, ncols=self.size.columns)[:self.size.columns].encode(self.encoding)
+    return self.format(*self.args, width=self.size.columns)[:self.size.columns].encode(self.encoding)
 
   def resize(self, *dummy):
     self.size = os.get_terminal_size(self.fileno)
