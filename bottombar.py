@@ -35,6 +35,7 @@ class BottomBar:
     self.encoding = output.encoding
     self.fileno = output.fileno()
     self.format = format
+    self.size = None
 
   def __bytes__(self):
     return self.format(*self.args, ncols=self.size.columns)[:self.size.columns].encode(self.encoding)
@@ -53,10 +54,10 @@ class BottomBar:
       % (self.size.lines, self, self.size.lines-1))
 
   def __enter__(self):
-    if hasattr(self, '_oldhandler'):
-      raise RuntimeError('This context manager is not reentrant.')
-    self._oldhandler = signal.signal(signal.SIGWINCH, self.resize)
+    if self.size is not None:
+      raise RuntimeError('BottomBar is not reentrant')
     self.resize()
+    self._oldhandler = signal.signal(signal.SIGWINCH, self.resize)
     return self
 
   def __call__(self, *args):
@@ -70,8 +71,9 @@ class BottomBar:
       % (self.size.lines, self))
 
   def __exit__(self, *exc):
-    if not hasattr(self, '_oldhandler'):
-      raise RuntimeError('This context manager is not yet entered.')
+    if self.size is None:
+      raise RuntimeError('BottomBar has not yet been entered')
+    signal.signal(signal.SIGWINCH, self._oldhandler)
     os.write(self.fileno,
       b'\0337' # save cursor position
       b'\033[%d;1H' # move cursor to bottom row, first column
@@ -79,8 +81,7 @@ class BottomBar:
       b'\033[r' # reset scroll region
       b'\0338' # restore cursor position
       % self.size.lines)
-    signal.signal(signal.SIGWINCH, self._oldhandler)
-    del self._oldhandler
+    self.size = None
 
 
 # vim:sw=2:sts=2:et
