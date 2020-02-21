@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import sys, os, signal, threading
+import sys, os, signal, threading, time
 
 
 class _ontime(threading.Thread):
@@ -30,7 +30,9 @@ class _ontime(threading.Thread):
     self.stopped = threading.Event()
     self.start()
   def run(self):
-    while not self.stopped.wait(self.interval):
+    interval = abs(self.interval)
+    precise = self.interval > 0
+    while not self.stopped.wait(interval - (precise and time.perf_counter() % interval)):
       self.callback(*self.args)
   def close(self):
     self.stopped.set()
@@ -55,11 +57,12 @@ def _format(*args, width):
 
 class BottomBar:
 
-  def __init__(self, *args, output=sys.stdout, format=_format):
+  def __init__(self, *args, output=sys.stdout, format=_format, interval=None):
     self.args = args
     self.encoding = output.encoding
     self.fileno = output.fileno()
     self.format = format
+    self.interval = interval
     self.size = None
     self.handles = []
 
@@ -69,8 +72,10 @@ class BottomBar:
     self.redraw(True)
     if hasattr(signal, 'SIGWINCH'):
       self.handles.append(_onevent(signal.SIGWINCH, self.redraw, False))
-    else:
-      self.handles.append(_ontime(1, self.redraw, False))
+    elif not self.interval:
+      self.handles.append(_ontime(-1, self.redraw, False))
+    if self.interval:
+      self.handles.append(_ontime(self.interval, self.redraw, True))
     return self.update
 
   def update(self, *args):
