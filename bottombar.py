@@ -78,6 +78,11 @@ class BottomBar:
       self.handles.append(_ontime(self.interval, self.redraw, True))
     return self.update
 
+  def write(self, data):
+    while data:
+      n = os.write(self.fileno, data)
+      data = data[n:]
+
   def update(self, *args):
     self.args = args
     self.redraw(True)
@@ -85,7 +90,7 @@ class BottomBar:
   def redraw(self, force):
     size = os.get_terminal_size(self.fileno)
     if size != self.size:
-      os.write(self.fileno,
+      self.write(
         b'\0337' # save cursor and attributes
         b'\033[r' # reset scroll region (moves cursor)
         b'\0338' # restore cursor and attributes
@@ -98,7 +103,7 @@ class BottomBar:
       self.size = size
       force = True
     if force:
-      os.write(self.fileno,
+      self.write(
         b'\0337' # save cursor and attributes
         b'\033[%d;1H' # move cursor to bottom row, first column
         b'\033[2K' # clear entire line
@@ -114,7 +119,7 @@ class BottomBar:
       raise RuntimeError('BottomBar has not yet been entered')
     while self.handles:
       self.handles.pop().close()
-    os.write(self.fileno,
+    self.write(
       b'\0337' # save cursor position
       b'\033[%d;1H' # move cursor to bottom row, first column
       b'\033[K' # clear entire line
