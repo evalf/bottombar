@@ -18,6 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+'''Print and maintain a status line at the bottom of a VT100 terminal.'''
+
+__version__ = '1.0'
+
+
 import sys, os, signal, threading, time
 
 
@@ -56,6 +61,40 @@ def _format(*args, width):
 
 
 class BottomBar:
+  '''Bar drawing context.
+
+  The BottomBar context is created with a single string argument, which is
+  displayed for the duration that the context remains entered.
+
+  >>> with BottomBar('bar text'):
+  ...     print('regular output')
+
+  To change the bar text without having to create a new context, the BottomBar
+  context returns an update method upon entry.
+
+  >>> with bottombar.BottomBar('bar text') as bb:
+  ...     bb('new bar text')
+
+  The optional keyword argument `format` determines how the bottom bar is drawn.
+  In addition to any number of positional arguments, this callable must also be
+  able to receive the keyword argument `width` for the present number of columns.
+  In the following example this argument is used to center the bar text.
+
+  >>> def center(text, width):
+  ...     return text.center(width)
+  >>> with bottombar.BottomBar('bar text', format=center) as bb:
+  ...     print('regular output')
+
+  The optional keyword argument `interval` causes BottomBar to automatically call
+  its formatter at set intervals. This is useful for formatters that (partly)
+  generate their own content. For example, the following adds a right-aligned
+  clock to the bar text, updated every second:
+
+  >>> import time
+  >>> def myformat(text, width):
+  ...     return text + time.ctime().rjust(width - len(text))
+  >>> with bottombar.BottomBar('bar text', format=myformat, interval=1) as bb:
+  ...     bb('new bar text')'''
 
   def __init__(self, *args, output=sys.stdout, format=_format, interval=None):
     self.args = args
