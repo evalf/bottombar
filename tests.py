@@ -60,13 +60,13 @@ class timer:
         self.t0 = time.perf_counter()
     def __str__(self) -> str:
         return '{:.5f}'.format(time.perf_counter() - self.t0)
-with bb.add(timer()), bb.auto_redraw(.5):
+with bb.add(timer(), refresh=.5):
     input('   a. check that the time in the bar updates approximately twice every second')
-    with bb.add(timer()), bb.auto_redraw(2):
+    with bb.add(timer(), refresh=2):
         input('   b. check that the time in the bar updates approximately twice every second')
-with bb.add(timer()), bb.auto_redraw(2):
+with bb.add(timer(), refresh=2):
     input('   c. check that the time in the bar updates approximately every two seconds')
-    with bb.add(timer()), bb.auto_redraw(.5):
+    with bb.add(timer(), refresh=.5):
         input('   d. check that the time in the bar updates approximately twice every second')
     input('   e. check that the time in the bar updates approximately every two seconds')
 
