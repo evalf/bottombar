@@ -20,13 +20,13 @@
 
 '''Print and maintain a status line at the bottom of a VT100 terminal.'''
 
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 
 
 import sys, os, atexit, signal
 from contextlib import ExitStack, ContextDecorator
 from dataclasses import dataclass
-from typing import Any, Optional, List, Callable, Type, Literal
+from typing import Any, Optional, List, Callable, Type
 from types import TracebackType, FrameType
 
 
@@ -355,9 +355,8 @@ class add(ContextDecorator):
     def __enter__(self) -> 'add':
         return self
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Literal[False]:
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> None:
         self.pop()
-        return False
 
     def pop(self) -> None:
         _bbar.remove(self.__item)
