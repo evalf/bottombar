@@ -20,7 +20,7 @@
 
 '''Print and maintain a status line at the bottom of a VT100 terminal.'''
 
-__version__ = '2.0b1'
+__version__ = '2.0'
 
 
 import sys, os, atexit, signal
@@ -45,7 +45,7 @@ _debug('initializing ...')
 
 
 @dataclass
-class BarItem:
+class _BarItem:
     '''Text, label combination to populate _BottomBar.
 
     Dataclass consisting of the mutable fields text and label.'''
@@ -63,25 +63,25 @@ class _BottomBar:
 
     def __init__(self) -> None:
         self.__nleft = 0
-        self.__items: List[BarItem] = []
+        self.__items: List[_BarItem] = []
 
     def __bool__(self) -> bool:
         return bool(self.__items)
 
-    def add(self, text: Any, *, right: bool, label: Optional[str]) -> BarItem:
+    def add(self, text: Any, *, right: bool, label: Optional[str]) -> _BarItem:
         '''Create a bar item and add it to the bar.
 
         The new item is added to the left or right stack depending on the
-        `right` argument. The new BarItem instance is returned for in place
+        `right` argument. The new _BarItem instance is returned for in place
         modification and removal.'''
 
-        c = BarItem(text, label)
+        c = _BarItem(text, label)
         self.__items.insert(self.__nleft, c)
         if not right:
             self.__nleft += 1
         return c
 
-    def remove(self, item: BarItem) -> None:
+    def remove(self, item: _BarItem) -> None:
         '''Remove a bar item.'''
 
         index = self.__items.index(item)
@@ -128,8 +128,7 @@ class _Terminal:
     The _Terminal class is in charge of printing data on screen. It keeps track
     of whether a status bar is currently drawn and if the screen size changed
     since last update, and provides methods for setting and resetting the
-    scroll region and printing a status line using VT100 control sequences.
-    '''
+    scroll region and printing a status line using VT100 control sequences.'''
 
     def __init__(self) -> None:
         self.__size: Optional[os.terminal_size] = None # a None value signifies that the scroll region is not set
@@ -197,16 +196,15 @@ class _Terminal:
 class Auto:
     '''Register handler function for resize and time events.
 
-    The implementation of this class is platform dependent.
+    The implementation of this class is platform dependent. On Unix systems, it
+    relies on the operating system's signal mechanism to watch for SIGWINCH and
+    SIGALRM events. Pre-existing handlers for the former remain active, while
+    those for the latter are disabled until the handler is removed.
 
-    On Unix system, it relies on the operating system's signal mechanism to
-    watch for SIGWINCH and SIGALRM events. As a result, pre-existing handlers
-    for those two events are temporarily disabled.
-
-    On non-unix systems, the class creates a thread upon first registration
+    On non-unix systems, the class creates a thread upon first registration,
     from which the handler is called at a given refresh rate, and the screen
-    size is polled every second. The thread is closed when the original handler
-    is restored.'''
+    size is polled every second. The thread is closed when the handler is
+    removed.'''
 
     if hasattr(signal, 'SIGWINCH') and hasattr(signal, 'SIGALRM'): # UNIX
 
@@ -310,7 +308,7 @@ else:
     _debug(f'terminal size: {_size.columns}x{_size.lines}')
 
     def redraw() -> None:
-        '''Manually redraw the bottom bar.'''
+        '''Redraw the bottom bar.'''
 
         if _bbar:
             _term.print_bar(_bbar.format(_term.prepare_bar()))
@@ -341,6 +339,7 @@ class add(ContextDecorator):
     @text.setter
     def text(self, value: Any) -> None:
         self.__item.text = value
+        redraw()
 
     @property
     def label(self) -> Optional[str]:
@@ -349,9 +348,10 @@ class add(ContextDecorator):
     @label.setter
     def label(self, value: Optional[str]) -> None:
         self.__item.label = value
+        redraw()
 
-    def __enter__(self) -> BarItem:
-        return self.__item
+    def __enter__(self) -> 'add':
+        return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Literal[False]:
         self.pop()
