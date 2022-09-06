@@ -134,6 +134,10 @@ class _Terminal:
         self.__size: Optional[os.terminal_size] = None # a None value signifies that the scroll region is not set
         self.__stdout = open(sys.stdout.fileno(), mode='wb', buffering=0, closefd=False)
 
+        # make sure we can query the terminal size
+        size = os.get_terminal_size()
+        _debug(f'terminal size: {size.columns}x{size.lines}')
+
     def prepare_bar(self) -> int:
         '''Create open line and set scroll region.
 
@@ -284,16 +288,15 @@ class Auto:
 
 
 _bbar = _BottomBar()
-_term = _Terminal()
 
 
 # Public API
 
 try:
 
-    _size = os.get_terminal_size()
+    _term = _Terminal()
 
-except OSError:
+except:
 
     _debug('DISABLED: no capable terminal detected')
 
@@ -304,8 +307,6 @@ except OSError:
         return ExitStack()
 
 else:
-
-    _debug(f'terminal size: {_size.columns}x{_size.lines}')
 
     def redraw() -> None:
         '''Redraw the bottom bar.'''
