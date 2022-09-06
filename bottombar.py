@@ -341,6 +341,7 @@ class add(ContextDecorator):
     @text.setter
     def text(self, value: Any) -> None:
         self.__item.text = value
+        redraw()
 
     @property
     def label(self) -> Optional[str]:
@@ -349,9 +350,10 @@ class add(ContextDecorator):
     @label.setter
     def label(self, value: Optional[str]) -> None:
         self.__item.label = value
+        redraw()
 
-    def __enter__(self) -> BarItem:
-        return self.__item
+    def __enter__(self) -> 'add':
+        return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Literal[False]:
         self.pop()

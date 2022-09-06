@@ -14,7 +14,6 @@ print('2. basic bottombar tests')
 with bb.add('foo...') as item:
     input('   a. check that the bottom line shows the text "foo..."')
     item.text = 'bar!'
-    bb.redraw()
     input('   b. check that the bottom line shows "bar!" (and nothing more)')
     input('   c. check that this {}long sentence wraps without overwriting "bar!"'.format('very ' * 40))
 input('   d. check that the bar is removed and the last line is open')
@@ -26,10 +25,8 @@ with bb.add('x', label='item1') as item1:
     with bb.add('y', label='item2') as item2, bb.add('z', label='item3') as item3:
         input('   b. check that the bottom line shows "item1: x | item2: y | item3: z"')
         item2.text = 'y' * 999
-        bb.redraw()
         input('   c. check that the bottom line shows "x | yyyyyyyyyyyyyyyyyyyyyyy.. | z" filling out the terminal')
         item3.text = 'z' * 999
-        bb.redraw()
         input('   c. check that the bottom line shows "x | yyyyyyyyyyy.. | zzzzzzzzzzz.."')
         with bb.add('right', right=True):
             input('   d. check that the bottom line shows "x | yyyyyyy.. | zzzzzzz..   right"')
@@ -42,7 +39,6 @@ with bb.add('white bar') as item:
     input('box]\033[0m is yellow but the bar is white')
     print('   c. check that \033[0;33m[this entire ', end='', flush=True)
     item.text = '\033[0;34mblue bar'
-    bb.redraw()
     input('box]\033[0m is yellow but the bar is blue')
     print('   d. check that \033[0;33m[this entire ', end='', flush=True)
 input('box]\033[0m is yellow and the bar disappeared')
