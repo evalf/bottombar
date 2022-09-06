@@ -27,10 +27,17 @@ reformats and redraws the bar whenever the terminal window is resized.
 ```python
 >>> import bottombar as bb
 >>> 
->>> with bb.add('bottom bar', label='powered by'):
+>>> with bb.add('bottom bar', label='powered by') as item:
 ...     print('regular output')
 # regular output                                                              #
 # powered by: bottom bar                                                      #
+```
+
+Items can be modified in place:
+
+```python
+...     item.text = 'bottom bar v2'
+# powered by: bottom bar v2                                                   #
 ```
 
 Labels are optional, and multiple items can be stacked:
@@ -38,7 +45,7 @@ Labels are optional, and multiple items can be stacked:
 ```python
 ...     with bb.add('more bar text'):
 # regular output                                                              #
-# powered by: bottom bar | more bar text                                      #
+# powered by: bottom bar v2 | more bar text                                   #
 ```
 
 Items can be right-aligned:
@@ -46,7 +53,7 @@ Items can be right-aligned:
 ```python
 ...         with bb.add('12:00', label='time', right=True):
 # regular output                                                              #
-# powered by: bottom bar | more bar text                          time: 12:00 #
+# powered by: bottom bar v2 | more bar text                       time: 12:00 #
 ```
 
 If items no longer fit the bar then labels are dropped to make room:
@@ -54,7 +61,7 @@ If items no longer fit the bar then labels are dropped to make room:
 ```python
 ...             with bb.add('more right-aligned bar text', right=True):
 # regular output                                                              #
-# bottom bar | more bar text              more right-aligned bar text | 12:00 #
+# bottom bar v2 | more bar text           more right-aligned bar text | 12:00 #
 ```
 
 If this is not enough, long text entries are truncated:
@@ -62,37 +69,24 @@ If this is not enough, long text entries are truncated:
 ```python
 ...                 with bb.add('this is getting too much'):
 # regular output                                                              #
-# bottom bar | more bar text | this is getting..   more right-align.. | 12:00 #
+# bottom bar v2 | more bar text | this is gettin..   more right-ali.. | 12:00 #
 ```
 
-
-Redrawing content
------------------
-
-Manual redraws are required when a bar item is modified in place:
-
-```python
->>> with bb.add('initial text') as item:
-...     item.text = 'updated text'
-# initial text                                                                #
-...     bb.redraw()
-# updated text                                                                #
-```
-
-For dynamic content it is more convenient to configure an auto-redraw rate:
+The bar is automatically redrawn whenever its contents change. Content that
+changes dynamically can be refreshed at a configured rate:
 
 ```python
 >>> import time
 >>> class Clock:
 ...     def __str__(self):
 ...         return time.strftime('%H:%M:%S')
->>> with bb.add(Clock(), label='time', right=True), bb.auto_redraw(1):
+>>> with bb.add(Clock(), label='time', right=True, refresh=1):
 #                                                              time: 12:00:00 #
 #                                                              time: 12:00:01 #
 #                                                              time: 12:00:02 #
 ```
 
-In case multiple auto-redraws are configured simultaneously, the fastest rate
+In case multiple refresh rates are configured simultaneously, the fastest rate
 prevails.
 
 
@@ -106,7 +100,7 @@ further intervention.
 
 The implementaton of automatic redrawing depends on the platform. On Unix-like
 systems both resize events and the redraw rate are handled using signals:
-`SIGWINCH` and `SIGALRM`. Consequently, previously active handlers for these
-signals are temporarily replaced for the duration that a bar is active. On
-other platforms a thread is spawned that polls the terminal size once every
+`SIGWINCH` and `SIGALRM`. Pre-existing handlers for the former remain active,
+while those for the latter are disabled for the duration that a bar is active.
+On other platforms a thread is spawned that polls the terminal size once every
 second, as well as redraws the bar at the configured interval.
