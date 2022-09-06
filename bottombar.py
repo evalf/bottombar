@@ -20,7 +20,7 @@
 
 '''Print and maintain a status line at the bottom of a VT100 terminal.'''
 
-__version__ = '2.0'
+__version__ = '2.0.1'
 
 
 import sys, os, atexit, signal
@@ -134,6 +134,10 @@ class _Terminal:
         self.__size: Optional[os.terminal_size] = None # a None value signifies that the scroll region is not set
         self.__stdout = open(sys.stdout.fileno(), mode='wb', buffering=0, closefd=False)
 
+        # make sure we can query the terminal size
+        size = os.get_terminal_size()
+        _debug(f'terminal size: {size.columns}x{size.lines}')
+
     def prepare_bar(self) -> int:
         '''Create open line and set scroll region.
 
@@ -144,7 +148,8 @@ class _Terminal:
 
         size = os.get_terminal_size()
         if size != self.__size:
-            _debug('setting scroll region')
+            scroll = size.lines - 1
+            _debug(f'setting scroll region to {scroll} lines')
             self.__stdout.write(
                 b'\0337' # save cursor and attributes
                 b'\033[r' # reset scroll region (moves cursor)
@@ -154,7 +159,7 @@ class _Terminal:
                 b'\0337' # save cursor and attributes
                 b'\033[1;%dr' # set scroll region
                 b'\0338' # restore cursor and attributes
-                % (size.lines-1))
+                % scroll)
             self.__size = size
         return size.columns
 
@@ -284,16 +289,15 @@ class Auto:
 
 
 _bbar = _BottomBar()
-_term = _Terminal()
 
 
 # Public API
 
 try:
 
-    _size = os.get_terminal_size()
+    _term = _Terminal()
 
-except OSError:
+except:
 
     _debug('DISABLED: no capable terminal detected')
 
@@ -304,8 +308,6 @@ except OSError:
         return ExitStack()
 
 else:
-
-    _debug(f'terminal size: {_size.columns}x{_size.lines}')
 
     def redraw() -> None:
         '''Redraw the bottom bar.'''
