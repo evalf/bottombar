@@ -148,7 +148,8 @@ class _Terminal:
 
         size = os.get_terminal_size()
         if size != self.__size:
-            _debug('setting scroll region')
+            scroll = size.lines - 1
+            _debug(f'setting scroll region to {scroll} lines')
             self.__stdout.write(
                 b'\0337' # save cursor and attributes
                 b'\033[r' # reset scroll region (moves cursor)
@@ -158,7 +159,7 @@ class _Terminal:
                 b'\0337' # save cursor and attributes
                 b'\033[1;%dr' # set scroll region
                 b'\0338' # restore cursor and attributes
-                % (size.lines-1))
+                % scroll)
             self.__size = size
         return size.columns
 
