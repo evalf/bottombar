@@ -56,9 +56,9 @@ with bb.add('left'), bb.add('right', right=True):
 
 print('6. refresh tests')
 class timer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.t0 = time.perf_counter()
-    def __str__(self):
+    def __str__(self) -> str:
         return '{:.5f}'.format(time.perf_counter() - self.t0)
 with bb.add(timer()), bb.auto_redraw(.5):
     input('   a. check that the time in the bar updates approximately twice every second')
