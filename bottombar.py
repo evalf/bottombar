@@ -20,7 +20,7 @@
 
 '''Print and maintain a status line at the bottom of a VT100 terminal.'''
 
-__version__ = '2.0b1'
+__version__ = '2.0'
 
 
 import sys, os, atexit, signal
