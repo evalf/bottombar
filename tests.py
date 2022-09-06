@@ -59,7 +59,7 @@ class timer:
 with bb.add(timer(), refresh=.5):
     input('   a. check that the time in the bar updates approximately twice every second')
     with bb.add(timer(), refresh=2):
-        input('   b. check that the time in the bar updates approximately twice every second')
+        input('   b. check that the time in the bar still updates approximately twice every second')
 with bb.add(timer(), refresh=2):
     input('   c. check that the time in the bar updates approximately every two seconds')
     with bb.add(timer(), refresh=.5):

@@ -128,8 +128,7 @@ class _Terminal:
     The _Terminal class is in charge of printing data on screen. It keeps track
     of whether a status bar is currently drawn and if the screen size changed
     since last update, and provides methods for setting and resetting the
-    scroll region and printing a status line using VT100 control sequences.
-    '''
+    scroll region and printing a status line using VT100 control sequences.'''
 
     def __init__(self) -> None:
         self.__size: Optional[os.terminal_size] = None # a None value signifies that the scroll region is not set
@@ -197,16 +196,15 @@ class _Terminal:
 class Auto:
     '''Register handler function for resize and time events.
 
-    The implementation of this class is platform dependent.
+    The implementation of this class is platform dependent. On Unix systems, it
+    relies on the operating system's signal mechanism to watch for SIGWINCH and
+    SIGALRM events. Pre-existing handlers for the former remain active, while
+    those for the latter are disabled until the handler is removed.
 
-    On Unix system, it relies on the operating system's signal mechanism to
-    watch for SIGWINCH and SIGALRM events. As a result, pre-existing handlers
-    for those two events are temporarily disabled.
-
-    On non-unix systems, the class creates a thread upon first registration
+    On non-unix systems, the class creates a thread upon first registration,
     from which the handler is called at a given refresh rate, and the screen
-    size is polled every second. The thread is closed when the original handler
-    is restored.'''
+    size is polled every second. The thread is closed when the handler is
+    removed.'''
 
     if hasattr(signal, 'SIGWINCH') and hasattr(signal, 'SIGALRM'): # UNIX
 
@@ -310,7 +308,7 @@ else:
     _debug(f'terminal size: {_size.columns}x{_size.lines}')
 
     def redraw() -> None:
-        '''Manually redraw the bottom bar.'''
+        '''Redraw the bottom bar.'''
 
         if _bbar:
             _term.print_bar(_bbar.format(_term.prepare_bar()))
