@@ -22,13 +22,13 @@ input('   e. check that this text appears on the last line')
 
 print('3. formatting tests')
 with bb.add('x', label='item1') as item1:
-    input('   a. check that the bottom line shows "item1: 1"')
+    input('   a. check that the bottom line shows "item1: x"')
     with bb.add('y', label='item2') as item2, bb.add('z', label='item3') as item3:
         input('   b. check that the bottom line shows "item1: x | item2: y | item3: z"')
         item2.text = 'y' * 999
         bb.redraw()
         input('   c. check that the bottom line shows "x | yyyyyyyyyyyyyyyyyyyyyyy.. | z" filling out the terminal')
-        item3.text = 'x' * 999
+        item3.text = 'z' * 999
         bb.redraw()
         input('   c. check that the bottom line shows "x | yyyyyyyyyyy.. | zzzzzzzzzzz.."')
         with bb.add('right', right=True):
