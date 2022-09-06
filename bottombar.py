@@ -45,7 +45,7 @@ _debug('initializing ...')
 
 
 @dataclass
-class BarItem:
+class _BarItem:
     '''Text, label combination to populate _BottomBar.
 
     Dataclass consisting of the mutable fields text and label.'''
@@ -63,25 +63,25 @@ class _BottomBar:
 
     def __init__(self) -> None:
         self.__nleft = 0
-        self.__items: List[BarItem] = []
+        self.__items: List[_BarItem] = []
 
     def __bool__(self) -> bool:
         return bool(self.__items)
 
-    def add(self, text: Any, *, right: bool, label: Optional[str]) -> BarItem:
+    def add(self, text: Any, *, right: bool, label: Optional[str]) -> _BarItem:
         '''Create a bar item and add it to the bar.
 
         The new item is added to the left or right stack depending on the
-        `right` argument. The new BarItem instance is returned for in place
+        `right` argument. The new _BarItem instance is returned for in place
         modification and removal.'''
 
-        c = BarItem(text, label)
+        c = _BarItem(text, label)
         self.__items.insert(self.__nleft, c)
         if not right:
             self.__nleft += 1
         return c
 
-    def remove(self, item: BarItem) -> None:
+    def remove(self, item: _BarItem) -> None:
         '''Remove a bar item.'''
 
         index = self.__items.index(item)
