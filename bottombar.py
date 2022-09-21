@@ -254,6 +254,7 @@ class Auto:
                 if signal.getsignal(sig) != signal.SIG_DFL:
                     raise RuntimeError(f'signal {sig.name} is in use')
                 signal.signal(sig, lambda sig, frame: handler())
+                signal.siginterrupt(sig, False) # restart any interrupted system calls
             signal.setitimer(signal.ITIMER_REAL, 0.)
             _debug('started signal based auto-redraw handler')
         def set(self, refresh: float) -> None:
