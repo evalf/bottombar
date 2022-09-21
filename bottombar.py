@@ -26,7 +26,7 @@ __version__ = '2.0.2'
 import sys, os, atexit, signal
 from contextlib import ExitStack, ContextDecorator
 from dataclasses import dataclass
-from typing import Any, Optional, List, Callable, Type
+from typing import Any, Optional, List, Callable, Type, Union
 from types import TracebackType, FrameType
 
 
@@ -201,79 +201,90 @@ class _Terminal:
 class Auto:
     '''Register handler function for resize and time events.
 
-    The implementation of this class is platform dependent. On Unix systems, it
-    relies on the operating system's signal mechanism to watch for SIGWINCH and
-    SIGALRM events. Pre-existing handlers for the former remain active, while
-    those for the latter are disabled until the handler is removed.
+    The implementation of this class is platform and situation dependent. On
+    Unix systems, it relies on the operating system's signal mechanism to watch
+    for SIGWINCH and SIGALRM events, if no handlers for these signals are
+    active at the time of activation.
 
-    On non-unix systems, the class creates a thread upon first registration,
-    from which the handler is called at a given refresh rate, and the screen
-    size is polled every second. The thread is closed when the handler is
-    removed.'''
+    On other platforms, or if signal handlers are already in place, the class
+    creates a thread upon first registration, from which the handler is called
+    at a given refresh rate, and the screen size is polled every second.'''
 
-    if hasattr(signal, 'SIGWINCH') and hasattr(signal, 'SIGALRM'): # UNIX
+    __active: Optional[Union['__thread_based', '__signal_based']]
 
-        _debug('using signal based auto-redraws')
+    def __init__(self, handler: Callable[[], None]) -> None:
+        self.__handler = handler
+        self.__active = None
+        self.__refresh = float('inf')
 
+    def __call__(self, refresh: float) -> ExitStack:
+        restore = ExitStack()
+        if not self.__active:
+            self.__activate()
+            restore.callback(self.__deactivate)
+        if refresh < self.__refresh:
+            restore.callback(self.__set_refresh, self.__refresh)
+            self.__set_refresh(refresh)
+        return restore
+
+    def __activate(self) -> None:
+        assert not self.__active, 'handler is already active'
+        try:
+            if os.getenv('BOTTOMBAR_THREAD_BASED', False):
+                raise RuntimeError('variable BOTTOMBAR_THREAD_BASED is set')
+            self.__active = self.__signal_based(self.__handler)
+        except Exception as e:
+            _debug(f'not selecting signal based auto-redraw handler: {e}')
+            self.__active = self.__thread_based(self.__handler)
+
+    def __deactivate(self) -> None:
+        assert self.__active, 'handler is not yet active'
+        self.__active.close()
+        self.__active = None
+
+    def __set_refresh(self, refresh: float) -> None:
+        assert self.__active, 'handler is not yet active'
+        _debug(f'set refresh interval to {refresh}')
+        self.__active.set(refresh)
+        self.__refresh = refresh
+
+    class __signal_based:
         def __init__(self, handler: Callable[[], None]) -> None:
-            self.handler = handler
-            self.refresh = 0.
+            for sig in signal.SIGALRM, signal.SIGWINCH:
+                if signal.getsignal(sig) != signal.SIG_DFL:
+                    raise RuntimeError(f'signal {sig.name} is in use')
+                signal.signal(sig, lambda sig, frame: handler())
+            signal.setitimer(signal.ITIMER_REAL, 0.)
+            _debug('started signal based auto-redraw handler')
+        def set(self, refresh: float) -> None:
+            if refresh < float('inf'):
+                signal.setitimer(signal.ITIMER_REAL, refresh, refresh)
+            else:
+                signal.setitimer(signal.ITIMER_REAL, 0.)
+        def close(self) -> None:
+            for sig in signal.SIGALRM, signal.SIGWINCH:
+                signal.signal(sig, signal.SIG_DFL)
+            signal.setitimer(signal.ITIMER_REAL, 0.)
+            _debug('stopped signal based auto-redraw handler')
 
-        def __call__(self, refresh: float = float('inf')) -> ExitStack:
-            restore = ExitStack()
-            restore.callback(setattr, self, 'refresh', self.refresh)
-            if not self.refresh:
-                def new_winch_handler(sig: int, frame: Optional[FrameType]) -> None:
-                    if callable(old_winch_handler):
-                        old_winch_handler(sig, frame)
-                    self.handler()
-                old_winch_handler = signal.signal(signal.SIGWINCH, new_winch_handler)
-                restore.callback(signal.signal, signal.SIGWINCH, old_winch_handler)
-                self.refresh = float('inf')
-            if refresh < self.refresh:
-                old_iterm = signal.setitimer(signal.ITIMER_REAL, refresh, refresh)
-                if self.refresh < float('inf'):
-                    old_iterm = self.refresh, self.refresh
-                else:
-                    restore.callback(signal.signal, signal.SIGALRM, signal.signal(signal.SIGALRM, lambda sig, frame: self.handler()))
-                restore.callback(signal.setitimer, signal.ITIMER_REAL, *old_iterm)
-                self.refresh = refresh
-            return restore
-
-    else: # NOT UNIX
-
-        _debug('using thread based auto-redraws')
-
-        import _thread
-
+    class __thread_based:
         def __init__(self, handler: Callable[[], None]) -> None:
-            self.handler = handler
-            self.refresh = 0.
-            self.lock = self._thread.allocate_lock()
+            import _thread
+            self.lock = _thread.allocate_lock()
             self.lock.acquire()
-
-        def __call__(self, refresh: float = float('inf')) -> ExitStack:
-            restore = ExitStack()
-            if not self.refresh:
-                restore.callback(self.__set, self.refresh)
-                self.refresh = refresh
-                if self.lock.locked():
-                    self._thread.start_new_thread(self.__run, ())
-            elif refresh < self.refresh:
-                restore.callback(self.__set, self.refresh)
-                self.__set(refresh)
-            return restore
-
-        def __set(self, refresh: float) -> None:
+            self.refresh = float('inf')
+            _thread.start_new_thread(self.__run, (handler,))
+        def set(self, refresh: float) -> None:
             self.refresh = refresh
             if self.lock.locked():
                 self.lock.release()
-
-        def __run(self) -> None:
+        def close(self) -> None:
+            self.set(0.)
+        def __run(self, handler: Callable[[], None]) -> None:
+            _debug('started thread based auto-redraw handler')
             timeout = self.refresh
             poll_rate = 1.
-            if poll_rate < timeout:
-                size = os.get_terminal_size()
+            size = os.get_terminal_size()
             while timeout:
                 if not self.lock.acquire(timeout=min(timeout, poll_rate)):
                     # timed out
@@ -284,14 +295,18 @@ class Auto:
                             timeout -= poll_rate
                             continue
                         # size changed
-                    self.handler()
+                    handler()
                 timeout = self.refresh
+            _debug('stopped thread based auto-redraw handler')
 
 
 _bbar = _BottomBar()
 
 
 # Public API
+
+redraw: Callable[[], None]
+auto_redraw: Callable[[float], ExitStack]
 
 try:
 
