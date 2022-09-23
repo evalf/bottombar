@@ -20,7 +20,7 @@
 
 '''Print and maintain a status line at the bottom of a VT100 terminal.'''
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 
 import sys, os, signal, threading, time
