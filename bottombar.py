@@ -50,6 +50,7 @@ class _onevent:
     self.args = args
     self.signalnum = signalnum
     self.oldhandler = signal.signal(signalnum, self.handler)
+    signal.siginterrupt(signalnum, False) # restart any interrupted system calls
   def handler(self, sig, tb):
     self.callback(*self.args)
   def close(self):
