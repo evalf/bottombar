@@ -311,11 +311,14 @@ auto_redraw: Callable[[float], ExitStack]
 
 try:
 
+    if os.getenv('BOTTOMBAR_DISABLE', False):
+        raise RuntimeError('variable BOTTOMBAR_DISABLE is set')
+
     _term = _Terminal()
 
-except:
+except Exception as e:
 
-    _debug('DISABLED: no capable terminal detected')
+    _debug(f'DISABLED: {e}')
 
     def redraw() -> None:
         pass
