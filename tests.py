@@ -1,9 +1,20 @@
 import bottombar as bb, os, time
+import signal
+
+def input(msg):
+    print(msg, end='', flush=True)
+    while True:
+        try:
+            signal.pause()
+        except KeyboardInterrupt:
+            break
+    print()
 
 print('\033[{};1H'.format(os.get_terminal_size().lines))
 print('====================')
 print('BOTTOMBAR UNIT TESTS')
 print('--------------------')
+print('PRESS CTRL+C TO PROCEED TO THE NEXT TEST')
 
 print('1. basic terminal tests')
 input('   a. check that this question shows at the very last line')
